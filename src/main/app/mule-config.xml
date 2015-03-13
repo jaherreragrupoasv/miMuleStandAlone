@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule
+    xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking"
+    xmlns:core="http://www.mulesoft.org/schema/mule/core"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:spring="http://www.springframework.org/schema/beans"
+    xmlns:http="http://www.mulesoft.org/schema/mule/http"
+    xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+    xmlns:jdbc-ee="http://www.mulesoft.org/schema/mule/ee/jdbc"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xmlns:quartz="http://www.mulesoft.org/schema/mule/quartz" xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+	xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+	xmlns:bpm="http://www.mulesoft.org/schema/mule/bpm" xmlns:client="http://www.mulesoft.org/schema/mule/client"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:spring-context="http://www.springframework.org/schema/context"
+
+	xsi:schemaLocation="
+	http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+    http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+    http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-current.xsd
+    http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+    http://www.springframework.org/schema/p http://www.springframework.org/schema/p/spring-p-current.xsd
+    http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+    http://www.mulesoft.org/schema/mule/bpm http://www.mulesoft.org/schema/mule/bpm/current/mule-bpm.xsd
+    http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+    http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+    http://www.mulesoft.org/schema/mule/client http://www.mulesoft.org/schema/mule/client/current/mule-client.xsd
+    http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd
+    http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd"
+	version="EE-3.5.1">
+	
+	<bpm:jbpm />
+	<bpm:drools />
+	
+	<spring:beans>
+		<spring-context:annotation-config />
+		
+		<spring:bean id="conversionService" class="org.springframework.format.support.FormattingConversionServiceFactoryBean" />		
+		
+		<spring:bean class="com.vocera.drools.fact.Patient" id="patient1"
+			p:id="patient1"
+			p:firstName="John"
+			p:lastName="Doe"
+			p:dateOfBirth="1982-10-22"
+		/>
+		
+		<spring:bean class="com.vocera.drools.fact.Patient" id="patient2"
+			p:id="patient2"
+			p:firstName="Jim"
+			p:lastName="Bean"
+			p:dateOfBirth="1972-02-01"
+		/>
+		
+		<spring:bean class="com.vocera.drools.fact.Patient" id="patient3"
+			p:id="patient3"
+			p:firstName="Jack"
+			p:lastName="Daniels"
+			p:dateOfBirth="1952-08-15"
+		/>
+		
+		<spring:bean class="com.vocera.drools.fact.Patient" id="patient4"
+			p:id="patient4"
+			p:firstName="Jose"
+			p:lastName="Cuervo"
+			p:dateOfBirth="1937-02-15"
+		/>
+		
+		<spring:bean class="com.vocera.drools.fact.Patient" id="patient5"
+			p:id="patient5"
+			p:firstName="Jager"
+			p:lastName="Meister"
+			p:dateOfBirth="1964-11-15"
+		/>
+		
+		<util:map id="patientMap">
+			<spring:entry key="patient1" value-ref="patient1"/>
+			<spring:entry key="patient2" value-ref="patient2"/>
+		</util:map>
+		
+		<util:list id="initialFacts">
+			<spring:ref bean="patient1"/>
+			<spring:ref bean="patient2"/>
+		</util:list> 
+		
+		<spring:bean id="createVitalsCallable" class="com.vocera.groovy.CreateVitalsCallable" />
+	</spring:beans>
+
+	<!-- Define Warehouses facts bean -->
+
+<!-- 	<jms:activemq-connector name="jms-connector"
+		brokerURL="tcp://localhost:61616" disableTemporaryReplyToDestinations="true"
+		doc:name="Active MQ" />
+		
+	<jms:endpoint name="UnsortedOrders" queue="UnsortedOrders"
+		connector-ref="jms-connector" doc:name="JMS" />
+	<jms:endpoint name="WarehouseA" queue="WarehouseA"
+		connector-ref="jms-connector" doc:name="JMS" />
+	<jms:endpoint name="WarehouseB" queue="WarehouseB"
+		connector-ref="jms-connector" doc:name="JMS" /> -->
+		
+	<vm:endpoint name="DroolsEndpoint" path="drools" doc:name="VM" />
+	
+    <flow name="VitalsGenerator" doc:name="VitalsGenerator">
+		<quartz:inbound-endpoint jobName="eventTimer"
+			repeatInterval="500" doc:name="Quartz">
+			<quartz:event-generator-job>
+				<quartz:payload>123</quartz:payload>
+			</quartz:event-generator-job>
+		</quartz:inbound-endpoint>
+        <component doc:name="Java">
+            <spring-object bean="createVitalsCallable"/>
+        </component>        
+		<vm:outbound-endpoint ref="DroolsEndpoint" doc:name="DroolsOut" />        
+	</flow>
+
+	<flow name="DroolsFlow" doc:name="DroolsFlow">
+	    <vm:inbound-endpoint ref="DroolsEndpoint" doc:name="VM"  exchange-pattern="one-way"/>
+   		<scripting:component doc:name="Groovy">
+            <scripting:script engine="Groovy">
+            	System.out.println("Vitals:" +message.getPayload().getPatient().getId() + " temp: " + message.getPayload().getTemperature()); return message.getPayload();
+            </scripting:script>
+        </scripting:component>		
+	    <bpm:rules rulesDefinition="voceraRules.drl" cepMode="true"
+			initialFacts-ref="initialFacts"  />        	
+	</flow>
+</mule>
